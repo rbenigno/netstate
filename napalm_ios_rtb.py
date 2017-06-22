@@ -54,10 +54,10 @@ class IOSDriver(napalm_ios.IOSDriver):
             # First column is the local interface
             local_int_brief = tmp_field[:18].strip()
             local_port = self._expand_interface_name(local_int_brief)
-            # Move to hold time (TODO: would regex be more reliable?)
-            tmp_field = tmp_field[18:].strip()
+            # Move to hold time
+            tmp_field = re.split(r'\d{1,3}', tmp_field[18:], maxsplit=1)[1]
             # Last column is remote port (not 100% reliable - CAT4507, for example)
-            remote_port = tmp_field[33:].strip()
+            remote_port = tmp_field[30:].strip()
 
             entry = {'port': remote_port, 'hostname': device_id}
             cdp.setdefault(local_port, [])
