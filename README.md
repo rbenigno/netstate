@@ -15,4 +15,13 @@ Currently extending the IOSDriver class from NAPALM with a new `get_cdp_neighbor
 Example:
 
     # Print the CDP table from a device in a CSV format
-    ./cdp_gather.py <host> <username>
+
+    usage: cdp_gather.py [-h] [--host HOST] [--inventory INVENTORY] [--user USER]
+                         [--passvar PASSVAR]
+    
+    optional arguments:
+      -h, --help              show this help message and exit
+      --host HOST             Device Host/IP
+      --inventory INVENTORY   Ansible Inventory file to use (instead of --host)
+      --user USER             User ID
+      --passvar PASSVAR       Environmental variable with PW. Otherwise, prompt.
