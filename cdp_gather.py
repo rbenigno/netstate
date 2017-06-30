@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 
 import argparse
+import re
 from common import *
 
-# Define and parse command line arguements
+from inventory_loader import get_ansible_inventory
+from inventory_loader import get_inventory_hosts
+
+# Define and parse command line arguments
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("host", help="Device Host/IP")
-    parser.add_argument("user", help="User ID")
+    parser.add_argument("--host", help="Device Host/IP")
+    parser.add_argument("--inventory", help="Ansible Inventory file to use (instead of --host)")
+    parser.add_argument("--user", help="User ID")
     parser.add_argument("--passvar", help="Environmental variable with PW.  Otherwise, prompt.")
     return parser.parse_args()
 
@@ -18,7 +23,6 @@ def parse_cdp_neighbors(output):
 
     Based on Napalm get_lldp_neighbors function
     """
-    import re
 
     cdp = {}
     # command = 'show cdp neighbors'
@@ -69,6 +73,23 @@ def print_cdp_csv(cdp_data, local_device=''):
         for entry in cdp_data[local_int]:
             print '"{}","{}","{}","{}"'.format(local_device, local_int, entry['hostname'], entry['port'])
 
+
+# Connect to a device with NAPALM and run a cli command
+def run_napalm_cdp_getter(host, username, password):
+    # Connect to the device using NAPALM
+    from napalm import get_network_driver
+    driver = get_network_driver('ios_rtb')
+    device = driver(host, username, password)
+    try:
+        device.open()
+        result = device.get_cdp_neighbors()
+        device.close()
+        return result
+    except Exception as e:
+        print 'Error: {}'.format(e)
+        return {}
+
+
 ### ---------------------------------------------------------------------------
 ### MAIN
 ### ---------------------------------------------------------------------------
@@ -80,26 +101,22 @@ if __name__ == '__main__':
     args = parse_args()
 
     # Establish device connection info
-    host = args.host
+    if args.inventory:
+        inventory = get_ansible_inventory(args.inventory)
+        inventory_hosts = get_inventory_hosts(inventory)
+    else:
+        host = args.host
     username = args.user
     password = get_password(args.passvar)
     if not password:
         print "No password"
         exit()
 
-    # Connect to the device using NAPALM
-    from napalm import get_network_driver
-    driver = get_network_driver('ios_rtb')
-    device = driver(host, username, password)
-    device.open()
- 
-    device_facts = device.get_facts()
-    
-    # Obtain CDP data using CLI command
-    # cli_resp = device.cli(['show cdp neighbors'])
-    # cdp_neigh_text = cli_resp['show cdp neighbors']
-    # cdp_data = parse_cdp_neighbors(cdp_neigh_text)
-
-    # Get CDP data from NAPALM
-    cdp_data = device.get_cdp_neighbors()
-    print_cdp_csv(cdp_data, device_facts['hostname'])
+    try:
+        for host in inventory_hosts:
+            print '\n# Running on device {}'.format(host['name'])
+            cdp_data = run_napalm_cdp_getter(host['address'], username, password)
+            print_cdp_csv(cdp_data, host['name'])
+    except:
+        cdp_data = run_napalm_cdp_getter(host, username, password)
+        print_cdp_csv(cdp_data, host)
